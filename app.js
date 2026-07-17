@@ -43,6 +43,8 @@ const DEFAULT = {
     { label: 'Reddit',    url: 'https://www.reddit.com' }
   ],
   history: [],
+  log: {},      // { 'YYYY-MM-DD': { questId: 1 } } — constance par app
+  journal: {},  // { 'YYYY-MM-DD': [ { t, done, c, ts } ] } — journal quotidien archivé
   firstRun: true
 };
 
@@ -55,7 +57,10 @@ let S = load();
 function load() {
   try {
     const raw = JSON.parse(localStorage.getItem('lesas') || '{}');
-    return Object.assign({}, DEFAULT, raw);
+    const s = Object.assign({}, DEFAULT, raw);
+    if (!s.log) s.log = {};
+    if (!s.journal) s.journal = {};
+    return s;
   } catch (e) { return Object.assign({}, DEFAULT); }
 }
 function save() { localStorage.setItem('lesas', JSON.stringify(S)); }
@@ -63,6 +68,18 @@ function save() { localStorage.setItem('lesas', JSON.stringify(S)); }
 function resetDayIfNeeded() {
   if (!S.today || S.today.date !== todayStr()) {
     if (S.today) {
+      // snapshot des quêtes du jour écoulé dans le log de constance
+      const prev = S.today.date;
+      S.log[prev] = S.log[prev] || {};
+      Object.keys(S.today.quests).forEach(id => { if (S.today.quests[id]) S.log[prev][id] = 1; });
+      // report des entrées de journal non faites → aujourd'hui, marquées J+n
+      const carry = (S.journal[prev] || []).filter(it => !it.done);
+      if (carry.length) {
+        const nd = todayStr();
+        S.journal[nd] = (S.journal[nd] || []).concat(
+          carry.map(it => ({ t: it.t, done: false, c: (it.c || 0) + 1, ts: Date.now() }))
+        );
+      }
       S.history.push({
         date: S.today.date, intention: S.today.intention,
         oneThing: S.today.oneThing.text, oneThingDone: S.today.oneThing.done,
@@ -198,6 +215,48 @@ function render() {
         </div>`).join('') : `<div class="int-hint">Aucune quête active — touche « Régler ».</div>`}
     </section>
 
+    <section class="constance">
+      <div>
+        <div class="sec-h"><h2>Constance · ${GRID_DAYS} jours</h2><button class="linkbtn" onclick="exportData()">Exporter</button></div>
+        <div class="cpanel">
+          <div class="crow chead">
+            <span class="clab"></span>
+            ${gridDays().map(o => { const d = new Date(Date.now() - o * DAY); return `<span class="cell hd ${o === 0 ? 'hdnow' : ''}">${'DLMMJVS'[d.getDay()]}</span>`; }).join('')}
+            <span class="cstreak"></span>
+          </div>
+          ${active.map(q => `
+            <div class="crow">
+              <span class="clab">${q.em} ${esc(q.label.split(' (')[0])}</span>
+              ${gridDays().map(o => {
+                const done = o === 0 ? !!T.quests[q.id] : !!((S.log[dstr(o)] || {})[q.id]);
+                return o === 0
+                  ? `<button class="cell today ${done ? 'on' : ''}" onclick="toggleQuest('${q.id}')"></button>`
+                  : `<span class="cell ${done ? 'on' : ''}"></span>`;
+              }).join('')}
+              <span class="cstreak">${questStreak(q.id) > 0 ? '🔥' + questStreak(q.id) : ''}</span>
+            </div>`).join('')}
+        </div>
+        <div class="int-hint" style="margin-top:8px">Seule la case du jour est cliquable. Le passé ne se rattrape pas.</div>
+      </div>
+      <div class="jcol">
+        <div class="sec-h"><h2>Journal du jour</h2></div>
+        <div class="cpanel">
+          ${jToday().length ? jToday().map((it, i) => `
+            <div class="jrow ${it.done ? 'done' : ''}">
+              <button class="box" onclick="togJournal(${i})">${it.done ? '✓' : ''}</button>
+              <span class="jtxt">${esc(it.t)}</span>
+              ${it.c ? `<span class="jcarry">J+${it.c}</span>` : ''}
+              <button class="jdel" onclick="delJournal(${i})">✕</button>
+            </div>`).join('') : `<div class="int-hint">Rien pour l'instant. Note ce que tu as fait, ou ce qu'il reste à faire.</div>`}
+          <div class="jadd">
+            <input class="field" id="jin" placeholder="Ajouter — Entrée pour valider">
+            <button class="btn primary jaddbtn" onclick="addJournal()">+</button>
+          </div>
+          <div class="int-hint" style="margin-top:8px">Non coché ce soir = reporté demain, marqué J+n. Tout est archivé par date.</div>
+        </div>
+      </div>
+    </section>
+
     <section>
       <div class="sec-h"><h2>Focus</h2></div>
       <div class="focus">
@@ -242,6 +301,8 @@ function render() {
   });
   document.getElementById('one').addEventListener('input', e => { S.today.oneThing.text = e.target.value; save(); });
   document.getElementById('boss').addEventListener('input', e => { S.today.boss.text = e.target.value; save(); });
+  const jin = document.getElementById('jin');
+  if (jin) jin.addEventListener('keydown', e => { if (e.key === 'Enter') addJournal(); });
   tickClock();
 }
 function grow(el) { el.style.height = '0px'; el.style.height = Math.max(34, el.scrollHeight) + 'px'; }
@@ -262,8 +323,48 @@ function toggleBoss() {
 }
 function toggleQuest(id) {
   S.today.quests[id] = !S.today.quests[id];
-  if (S.today.quests[id]) addXp(10);
+  const d = todayStr();
+  S.log[d] = S.log[d] || {};
+  if (S.today.quests[id]) { S.log[d][id] = 1; addXp(10); } else delete S.log[d][id];
   checkPerfect(); save(); render();
+}
+
+/* ---------- Constance (grille) ---------- */
+const GRID_DAYS = 14;
+function dstr(off) { return new Date(Date.now() - off * DAY).toISOString().slice(0, 10); }
+function gridDays() { const a = []; for (let i = GRID_DAYS - 1; i >= 0; i--) a.push(i); return a; }
+function questStreak(id) {
+  let off = (S.log[dstr(0)] || {})[id] ? 0 : 1, n = 0;
+  while ((S.log[dstr(off)] || {})[id]) { n++; off++; }
+  return n;
+}
+
+/* ---------- Journal du jour ---------- */
+function jToday() { const d = todayStr(); return S.journal[d] = S.journal[d] || []; }
+function addJournal() {
+  const el = document.getElementById('jin');
+  const v = (el && el.value || '').trim();
+  if (!v) return;
+  jToday().push({ t: v, done: false, c: 0, ts: Date.now() });
+  save(); render();
+  const n = document.getElementById('jin'); if (n) n.focus();
+}
+function togJournal(i) {
+  const j = jToday();
+  j[i].done = !j[i].done;
+  if (j[i].done) awardOnce('journal', 5);
+  save(); render();
+}
+function delJournal(i) { jToday().splice(i, 1); save(); render(); }
+
+function exportData() {
+  const blob = new Blob([JSON.stringify(S, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'lesas-export-' + todayStr() + '.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast('📦 Export téléchargé');
 }
 
 /* ---------- Horloge ---------- */

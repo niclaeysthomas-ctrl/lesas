@@ -87,6 +87,34 @@ section{margin-top:30px}
 .quest .go{border:1px solid var(--line);border-radius:8px;padding:5px 10px;font-size:11px;font-weight:800;color:var(--muted)}
 .quest .go:active{background:var(--card2)}
 
+/* Constance + journal */
+.cpanel{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px;overflow-x:auto}
+.crow{display:flex;align-items:center;gap:3px;margin-bottom:5px}
+.crow:last-child{margin-bottom:0}
+.clab{flex:0 0 96px;font-size:12px;font-weight:700;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cell{width:19px;height:19px;border-radius:5px;background:var(--card2);border:1px solid var(--line);flex:0 0 auto;padding:0}
+.cell.on{background:var(--good);border-color:var(--good)}
+.cell.today{border-color:var(--accent);cursor:pointer}
+.cell.hd{background:none;border:none;color:var(--dim);font-size:9px;font-weight:800;height:auto;display:grid;place-items:center}
+.cell.hdnow{color:var(--accent)}
+.cstreak{margin-left:6px;font-size:11px;color:var(--muted);font-weight:800;min-width:34px;white-space:nowrap}
+.jrow{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
+.jrow .box{width:20px;height:20px;border-radius:6px;font-size:12px;margin:0}
+.jrow.done .box{background:var(--good);border-color:var(--good);color:#05230f}
+.jrow.done .jtxt{text-decoration:line-through;color:var(--muted)}
+.jtxt{flex:1;font-size:14px;font-weight:600;min-width:0;overflow-wrap:anywhere}
+.jcarry{font-size:10px;font-weight:800;color:var(--bad);flex:0 0 auto}
+.jdel{color:var(--dim);font-size:14px;padding:2px 6px;flex:0 0 auto}
+.jadd{display:flex;gap:8px;margin-top:12px}
+.jadd .field{flex:1;margin:0}
+.jaddbtn{width:auto;margin:0;padding:10px 16px}
+.constance .jcol{margin-top:26px}
+@media(min-width:980px){
+  .constance{width:min(1040px,calc(100vw - 36px));margin-left:calc((100% - min(1040px,100vw - 36px))/2);
+    display:grid;grid-template-columns:1.15fr 1fr;gap:24px;align-items:start}
+  .constance .jcol{margin-top:0}
+}
+
 /* Focus */
 .focus{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px;text-align:center}
 .ftime{font-size:44px;font-weight:200;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
@@ -146,6 +174,6 @@ a.app .em{font-size:16px}
 <div class="wrap" id="app"></div>
 <div id="overlay"></div>
 <div class="toast" id="toast"></div>
-<script src="app.js?v=2"></script>
+<script src="app.js?v=3"></script>
 </body>
 </html>

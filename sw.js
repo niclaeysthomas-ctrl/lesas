@@ -1,8 +1,8 @@
 /* LE SAS — service worker : cache offline (app shell) */
-const CACHE = 'lesas-v2';
+const CACHE = 'lesas-v3';
 const ASSETS = [
   'index.html',
-  'app.js?v=2',
+  'app.js?v=3',
   'manifest.webmanifest',
   'icon-192.png',
   'icon-512.png'
